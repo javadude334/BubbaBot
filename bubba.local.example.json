@@ -1,0 +1,8 @@
+{
+  "room": "BubbaRoom",
+  "site": "BubbaTest",
+  "host": "127.0.0.1",
+  "port": 5001,
+  "cooldown_seconds": 30,
+  "max_replies_per_hour": 20
+}
