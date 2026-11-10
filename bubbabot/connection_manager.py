@@ -9,6 +9,10 @@ import time
 from .transport import LocalTCPTransport, MAX_LINE_BYTES
 
 
+class FramingError(Exception):
+    """Invalid or incomplete TCP line."""
+
+
 class ConnectionManager:
     def __init__(self, transport: LocalTCPTransport, *, initial_delay=0.1,
                  max_delay=5.0, max_sessions=3, sleep=None):
@@ -38,19 +42,19 @@ class ConnectionManager:
                         chunk = connection.recv(4096)
                         if not chunk:
                             if pending:
-                                raise ValueError("unterminated incoming line")
+                                raise FramingError("unterminated incoming line")
                             break
                         pending.extend(chunk)
                         while b"\n" in pending:
                             index = pending.index(b"\n") + 1
                             if index > MAX_LINE_BYTES:
-                                raise ValueError("incoming line too long")
+                                raise FramingError("incoming line too long")
                             line = bytes(pending[:index]).decode("utf-8")
                             del pending[:index]
                             on_line(line)
                         if len(pending) > MAX_LINE_BYTES:
-                            raise ValueError("incoming line too long")
-            except (OSError, ConnectionError, ValueError, UnicodeError):
+                            raise FramingError("incoming line too long")
+            except (OSError, ConnectionError, FramingError, UnicodeError):
                 # Only transport/framing failures are recoverable.
                 pass
             if attempt + 1 < self.max_sessions:
