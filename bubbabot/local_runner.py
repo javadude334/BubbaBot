@@ -27,7 +27,8 @@ def main(argv=None):
     handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
     logger.addHandler(handler)
     logger.info("Starting local-only test client (no AI API)")
-    print("BubbaBot LOCAL TEST ONLY; no public MRC connection or AI API.")
+    print("BubbaBot LOCAL TEST ONLY; no public MRC connection or AI API.", flush=True)
+    print(f"Connecting to {settings.host}:{settings.port} as {settings.site} in #{settings.room}", flush=True)
     try:
         engine = BubbaEngine({settings.room},
                              cooldown_seconds=settings.cooldown_seconds,
