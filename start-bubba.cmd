@@ -14,7 +14,7 @@ if not exist "%PYTHON_EXE%" (
     exit /b 1
 )
 echo BubbaBot offline validation
-"%PYTHON_EXE%" -I -m unittest discover -s tests -v
+"%PYTHON_EXE%" -m unittest discover -s tests -v
 set "EXIT_CODE=%ERRORLEVEL%"
 if not "%EXIT_CODE%"=="0" echo ERROR: BubbaBot tests failed with exit code %EXIT_CODE%.
 exit /b %EXIT_CODE%
