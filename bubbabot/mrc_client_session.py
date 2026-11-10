@@ -34,7 +34,12 @@ class LocalMRCSession:
             connection.sendall(identification(self.identity))
             pending = bytearray()
             while messages < self.max_messages:
-                chunk = connection.recv(4096)
+                try:
+                    chunk = connection.recv(4096)
+                except socket.timeout:
+                    # Idle is normal while a human types in the mock MRC room.
+                    # The socket remains open; no packet is replayed or invented.
+                    continue
                 if not chunk:
                     if pending:
                         raise ValueError("unterminated server packet")
