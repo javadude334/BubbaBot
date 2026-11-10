@@ -1,5 +1,6 @@
 import socket
 import threading
+import time
 import unittest
 
 from bubbabot.local_test_server import run_server
@@ -17,29 +18,39 @@ class InteractiveMockTests(unittest.TestCase):
             port = probe.getsockname()[1]
         lines = []
         errors = []
+
         def server():
             try:
-                run_server(port=port, input_fn=iter(["Hey @Bubba", "/quit"]).__next__,
+                run_server(port=port,
+                           input_fn=iter(["Hey @Bubba", "/quit"]).__next__,
                            output_fn=lines.append)
             except BaseException as exc:
                 errors.append(exc)
+
         thread = threading.Thread(target=server, daemon=True)
         thread.start()
-        import time
-        for _ in range(100):
-            try:
-                with socket.create_connection(("127.0.0.1", port), timeout=.05):
-                    pass
-            except OSError:
-                time.sleep(.01)
-                continue
-            break
-        # First probe connection is intentionally not used by the bot; avoid
-        # relying on its timing by running an independent integration test.
-        thread.join(timeout=2)
+        for _ in range(200):
+            if lines:
+                break
+            time.sleep(.01)
+        self.assertTrue(lines, "mock server did not start")
+        engine = BubbaEngine({"BubbaRoom"}, cooldown_seconds=0)
+        session = OfflineSession(engine)
+        client = LocalMRCSession(
+            LocalTCPTransport(port=port, timeout=3, max_attempts=1),
+            ClientIdentity("BubbaTest"), session
+        )
+        result = client.run()
+        thread.join(timeout=4)
         self.assertFalse(thread.is_alive())
-        self.assertTrue(errors)  # probe disconnect during identification is handled by caller
+        self.assertFalse(errors, errors)
+        self.assertEqual(result["replies"], 1)
+        self.assertTrue(any("Howdy, Dave!" in line for line in lines))
 
     def test_invalid_port(self):
         with self.assertRaises(ValueError):
             run_server(port=0)
+
+
+if __name__ == "__main__":
+    unittest.main()
