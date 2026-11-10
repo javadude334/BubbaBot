@@ -48,6 +48,18 @@ def run_server(port=5001, room="BubbaRoom", user="Dave", site="DavesBBS",
             output_fn("Connected: " + identity.decode("utf-8", errors="replace"))
             connection.sendall(b"SERVER~~~ALL~~~PING~\n")
             output_fn("Heartbeat: " + read_line(connection).strip())
+            # The independent local runner announces its room presence.
+            # Older mock clients may omit this packet.
+            connection.settimeout(0.3)
+            try:
+                presence = read_line(connection)
+                if not presence.endswith("~IAMHERE~\\n"):
+                    output_fn("Unexpected presence packet: " + presence.strip())
+                else:
+                    output_fn("Room presence: " + presence.strip())
+            except socket.timeout:
+                pass
+            connection.settimeout(10)
             output_fn(f"Type a message for #{room} (e.g. Hey @Bubba), or /quit.")
             while True:
                 try:
