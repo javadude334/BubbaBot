@@ -18,11 +18,12 @@ class InteractiveMockTests(unittest.TestCase):
             port = probe.getsockname()[1]
         lines = []
         errors = []
+        messages = iter(["Hey @Bubba", "/quit"])
 
         def server():
             try:
                 run_server(port=port,
-                           input_fn=iter(["Hey @Bubba", "/quit"]).__next__,
+                           input_fn=lambda prompt: next(messages),
                            output_fn=lines.append)
             except BaseException as exc:
                 errors.append(exc)
