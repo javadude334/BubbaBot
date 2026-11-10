@@ -7,6 +7,7 @@ from pathlib import Path
 @dataclass(frozen=True)
 class Settings:
     room: str = "BubbaRoom"
+    bot_name: str = "Bubba"
     site: str = "BubbaTest"
     host: str = "127.0.0.1"
     port: int = 5001
@@ -14,6 +15,8 @@ class Settings:
     max_replies_per_hour: int = 20
 
     def __post_init__(self):
+        from .bot_profile import BotProfile
+        BotProfile(name=self.bot_name, site=self.site, room=self.room)
         from .transport import require_loopback
         require_loopback(self.host)
         if not isinstance(self.port, int) or isinstance(self.port, bool) or not 1 <= self.port <= 65535:
