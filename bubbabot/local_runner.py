@@ -42,7 +42,7 @@ def main(argv=None):
             return LocalMRCSession(
                 LocalTCPTransport(host=settings.host, port=settings.port,
                                   timeout=3, max_attempts=1),
-                ClientIdentity(site=settings.site), session,
+                ClientIdentity(site=settings.site), session, presence=profile,
                 max_messages=args.max_messages
             )
 
