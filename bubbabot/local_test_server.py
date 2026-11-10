@@ -53,7 +53,7 @@ def run_server(port=5001, room="BubbaRoom", user="Dave", site="DavesBBS",
             connection.settimeout(0.3)
             try:
                 presence = read_line(connection)
-                if not presence.endswith("~IAMHERE~\\n"):
+                if not presence.endswith("~IAMHERE~\n"):
                     output_fn("Unexpected presence packet: " + presence.strip())
                 else:
                     output_fn("Room presence: " + presence.strip())
