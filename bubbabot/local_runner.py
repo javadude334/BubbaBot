@@ -4,6 +4,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
+from .reconnecting_runner import run_reconnecting
 from .engine import BubbaEngine
 from .mrc_client_session import LocalMRCSession
 from .mrc_handshake import ClientIdentity
@@ -16,6 +17,8 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description="BubbaBot local-only TCP test client")
     parser.add_argument("--config", default="bubba.local.json")
     parser.add_argument("--max-messages", type=int, default=100)
+    parser.add_argument("--max-sessions", type=int, default=1,
+                        help="Maximum local connections including reconnects (default 1)")
     args = parser.parse_args(argv)
     settings = load_settings(args.config)
     log_dir = Path("logs")
@@ -34,16 +37,20 @@ def main(argv=None):
                              cooldown_seconds=settings.cooldown_seconds,
                              max_replies_per_hour=settings.max_replies_per_hour)
         session = OfflineSession(engine, bot_site=settings.site)
-        client = LocalMRCSession(
-            LocalTCPTransport(host=settings.host, port=settings.port,
-                              timeout=3, max_attempts=1),
-            ClientIdentity(site=settings.site), session,
-            max_messages=args.max_messages
-        )
-        result = client.run()
-        logger.info("Session complete messages=%s replies=%s",
-                    result["messages"], result["replies"])
-        print(f"Session complete: {result['messages']} messages, {result['replies']} replies")
+        def make_session():
+            return LocalMRCSession(
+                LocalTCPTransport(host=settings.host, port=settings.port,
+                                  timeout=3, max_attempts=1),
+                ClientIdentity(site=settings.site), session,
+                max_messages=args.max_messages
+            )
+
+        result = run_reconnecting(make_session, max_sessions=args.max_sessions,
+                                  logger=logger)
+        logger.info("Complete sessions=%s messages=%s replies=%s",
+                    result["sessions"], result["messages"], result["replies"])
+        print(f"Complete: {result['sessions']} sessions, "
+              f"{result['messages']} messages, {result['replies']} replies")
     except (ConnectionError, OSError, ValueError, UnicodeError) as exc:
         logger.error("Local session failed: %s", type(exc).__name__)
         parser.exit(1, f"Local test failed: {exc}\n")
