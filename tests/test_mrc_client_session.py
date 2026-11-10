@@ -86,10 +86,10 @@ class SessionIntegrationTests(unittest.TestCase):
                         while len(data) < len(identity):
                             data.extend(conn.recv(len(identity) - len(data)))
                         self.assertEqual(bytes(data), identity)
-                        conn.sendall(b"SERVER~~~ALL~~~PING~\\n")
+                        conn.sendall(b"SERVER~~~ALL~~~PING~\n")
                         packets.append(self._line(conn))
                         packets.append(self._line(conn))
-                        conn.sendall(b"SERVER~~~ALL~~~STATS~\\n")
+                        conn.sendall(b"SERVER~~~ALL~~~STATS~\n")
                         packets.append(self._line(conn))
             except BaseException as exc:
                 errors.append(exc)
@@ -109,7 +109,7 @@ class SessionIntegrationTests(unittest.TestCase):
             raise errors[0]
         self.assertEqual(result, {"messages": 2, "replies": 0})
         self.assertIn("IMALIVE:BubbaTest", packets[0])
-        self.assertEqual(packets[1], "Bubba~BubbaBot~Bubba~SERVER~~~IAMHERE~\\n")
+        self.assertEqual(packets[1], "Bubba~BubbaBot~Bubba~SERVER~~~IAMHERE~\n")
         self.assertIn("SHUTDOWN", packets[2])
 
     @staticmethod
