@@ -3,6 +3,7 @@ import socket
 import threading
 import unittest
 
+from bubbabot.bot_profile import BotProfile
 from bubbabot.engine import BubbaEngine
 from bubbabot.mrc_client_session import LocalMRCSession
 from bubbabot.mrc_handshake import ClientIdentity
@@ -64,6 +65,52 @@ class SessionIntegrationTests(unittest.TestCase):
         self.assertIn("Howdy, Dave!", observed[2])
         self.assertEqual(observed[3],
                          "CLIENT~TestBBS~~SERVER~~~SHUTDOWN~\n")
+
+    def test_opt_in_room_presence_after_ping(self):
+        listener = socket.socket()
+        listener.bind(("127.0.0.1", 0))
+        listener.listen(1)
+        listener.settimeout(3)
+        port = listener.getsockname()[1]
+        packets = []
+        errors = []
+
+        def server():
+            try:
+                with listener:
+                    conn, _ = listener.accept()
+                    with conn:
+                        conn.settimeout(3)
+                        identity = b"BubbaTest~MYSTIC/Windows/AMD64/1.3.7"
+                        data = bytearray()
+                        while len(data) < len(identity):
+                            data.extend(conn.recv(len(identity) - len(data)))
+                        self.assertEqual(bytes(data), identity)
+                        conn.sendall(b"SERVER~~~ALL~~~PING~\\n")
+                        packets.append(self._line(conn))
+                        packets.append(self._line(conn))
+                        conn.sendall(b"SERVER~~~ALL~~~STATS~\\n")
+                        packets.append(self._line(conn))
+            except BaseException as exc:
+                errors.append(exc)
+
+        thread = threading.Thread(target=server, daemon=True)
+        thread.start()
+        client = LocalMRCSession(
+            LocalTCPTransport(port=port, timeout=3, max_attempts=1),
+            ClientIdentity("BubbaTest"),
+            OfflineSession(BubbaEngine({"Bubba"}, cooldown_seconds=0)),
+            max_messages=2, presence=BotProfile(room="#Bubba")
+        )
+        result = client.run()
+        thread.join(timeout=4)
+        self.assertFalse(thread.is_alive())
+        if errors:
+            raise errors[0]
+        self.assertEqual(result, {"messages": 2, "replies": 0})
+        self.assertIn("IMALIVE:BubbaTest", packets[0])
+        self.assertEqual(packets[1], "Bubba~BubbaBot~Bubba~SERVER~~~IAMHERE~\\n")
+        self.assertIn("SHUTDOWN", packets[2])
 
     @staticmethod
     def _line(connection):
