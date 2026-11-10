@@ -8,11 +8,12 @@ import socket
 from .mrc_handshake import identification, im_alive, server_ping, shutdown
 from .transport import LocalTCPTransport
 from .framing import MRCLineFramer
+from .protocol import Packet, encode_packet
 
 
 class LocalMRCSession:
     def __init__(self, transport: LocalTCPTransport, identity, chat_session, *,
-                 process_id=1, max_messages=100):
+                 process_id=1, max_messages=100, presence=None):
         if not isinstance(transport, LocalTCPTransport):
             raise TypeError("only LocalTCPTransport is supported")
         if max_messages < 1:
@@ -22,6 +23,7 @@ class LocalMRCSession:
         self.chat_session = chat_session
         self.process_id = process_id
         self.max_messages = max_messages
+        self.presence = presence
 
     def run(self):
         """Connect once; send raw identity, answer pings and chat, then close.
@@ -50,6 +52,11 @@ class LocalMRCSession:
                     messages += 1
                     if server_ping(line):
                         connection.sendall(im_alive(self.identity, self.process_id).encode("utf-8"))
+                        if self.presence is not None:
+                            p = self.presence
+                            connection.sendall(encode_packet(Packet(
+                                p.name, p.site, p.room, "SERVER", "", "", "IAMHERE"
+                            )).encode("utf-8"))
                     else:
                         response = self.chat_session.handle_line(line)
                         if response:
