@@ -33,6 +33,7 @@ def run_server(port=5001, room="BubbaRoom", user="Dave", site="DavesBBS",
         output_fn(f"Mock MRC server listening on 127.0.0.1:{port} (LOCAL ONLY)")
         output_fn("Start run-bubba-local.cmd in another terminal.")
         with listener.accept()[0] as connection:
+            output_fn("TCP client accepted; waiting for identification...")
             connection.settimeout(10)
             # The legacy client sends raw identification without a newline.
             # A single recv may contain a partial identification.
