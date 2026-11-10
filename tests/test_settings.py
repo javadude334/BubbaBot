@@ -21,6 +21,17 @@ class SettingsTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 load_settings(path)
 
+    def test_custom_bot_identity_and_room(self):
+        settings = Settings(bot_name="Bubba", site="BubbaTest", room="#Bubba")
+        self.assertEqual(settings.bot_name, "Bubba")
+        self.assertEqual(settings.room, "#Bubba")
+
+    def test_rejects_invalid_bot_identity(self):
+        with self.assertRaises(ValueError):
+            Settings(bot_name="Bad~Bot")
+        with self.assertRaises(ValueError):
+            Settings(room="bad room")
+
     def test_reads_valid_settings(self):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / "config.json"
