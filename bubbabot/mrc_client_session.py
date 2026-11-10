@@ -6,7 +6,8 @@ any live connection. A single socket handles control and chat responses.
 import socket
 
 from .mrc_handshake import identification, im_alive, server_ping, shutdown
-from .transport import LocalTCPTransport, MAX_LINE_BYTES
+from .transport import LocalTCPTransport
+from .framing import MRCLineFramer
 
 
 class LocalMRCSession:
@@ -32,7 +33,7 @@ class LocalMRCSession:
         messages = 0
         with self.transport.connect() as connection:
             connection.sendall(identification(self.identity))
-            pending = bytearray()
+            framer = MRCLineFramer()
             while messages < self.max_messages:
                 try:
                     chunk = connection.recv(4096)
@@ -41,16 +42,11 @@ class LocalMRCSession:
                     # The socket remains open; no packet is replayed or invented.
                     continue
                 if not chunk:
-                    if pending:
-                        raise ValueError("unterminated server packet")
+                    framer.finish()
                     break
-                pending.extend(chunk)
-                while b"\n" in pending and messages < self.max_messages:
-                    index = pending.index(b"\n") + 1
-                    if index > MAX_LINE_BYTES:
-                        raise ValueError("incoming packet too large")
-                    line = bytes(pending[:index]).decode("utf-8")
-                    del pending[:index]
+                for line in framer.feed(chunk):
+                    if messages >= self.max_messages:
+                        break
                     messages += 1
                     if server_ping(line):
                         connection.sendall(im_alive(self.identity, self.process_id).encode("utf-8"))
@@ -59,8 +55,6 @@ class LocalMRCSession:
                         if response:
                             connection.sendall(response.encode("utf-8"))
                             replies += 1
-                if len(pending) > MAX_LINE_BYTES:
-                    raise ValueError("incoming packet too large")
             # Explicit shutdown is sent only when server has not already closed.
             if messages >= self.max_messages:
                 try:
