@@ -5,10 +5,10 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from .reconnecting_runner import run_reconnecting
-from .engine import BubbaEngine
+from .bot_profile import BotProfile
+from .room_manager import OfflineRoomManager
 from .mrc_client_session import LocalMRCSession
 from .mrc_handshake import ClientIdentity
-from .session import OfflineSession
 from .settings import load_settings
 from .transport import LocalTCPTransport
 
@@ -31,12 +31,13 @@ def main(argv=None):
     logger.addHandler(handler)
     logger.info("Starting local-only test client (no AI API)")
     print("BubbaBot LOCAL TEST ONLY; no public MRC connection or AI API.", flush=True)
-    print(f"Connecting to {settings.host}:{settings.port} as {settings.site} in #{settings.room}", flush=True)
+    profile = BotProfile(name=settings.bot_name, site=settings.site, room=settings.room)
+    print(f"Connecting to {settings.host}:{settings.port} as {profile.name} ({profile.site}) in #{profile.room}", flush=True)
     try:
-        engine = BubbaEngine({settings.room},
-                             cooldown_seconds=settings.cooldown_seconds,
-                             max_replies_per_hour=settings.max_replies_per_hour)
-        session = OfflineSession(engine, bot_site=settings.site)
+        room_manager = OfflineRoomManager(profile,
+                                          cooldown_seconds=settings.cooldown_seconds,
+                                          max_replies_per_hour=settings.max_replies_per_hour)
+        session = room_manager.session
         def make_session():
             return LocalMRCSession(
                 LocalTCPTransport(host=settings.host, port=settings.port,
