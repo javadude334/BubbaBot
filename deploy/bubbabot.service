@@ -1,0 +1,24 @@
+[Unit]
+Description=BubbaBot MRC Mode 1 connector
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=bubbabot
+Group=bubbabot
+WorkingDirectory=/opt/bubbabot
+EnvironmentFile=/etc/bubbabot/bubbabot.env
+ExecStart=/opt/bubbabot/.venv/bin/python -m bubbabot.official_sdk_runner
+Restart=on-failure
+RestartSec=20
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+UMask=0077
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
