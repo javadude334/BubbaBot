@@ -178,6 +178,15 @@ def main():
                             continue
                         # Commands are local and must not wait for AI or its
                         # five-second cooldown. Limit repeat commands per visitor.
+                        # Temporary diagnostic: inspect only the first four codepoints,
+                        # never log the message, handles, or extracted facts.
+                        print(
+                            "MRC prefix diagnostic: length=" + str(len(message))
+                            + " first4=" + ",".join(f"{ord(ch):04X}" for ch in message[:4])
+                            + " leading_angle=" + str(message.lstrip().startswith("<"))
+                            + " leading_pipe=" + str(message.lstrip().startswith("|")),
+                            flush=True,
+                        )
                         command = memory_command(message)
                         print("Memory diagnostic: command=" + (command or "none") + ", mentioned=" + str(mentioned), flush=True)
                         if command:
