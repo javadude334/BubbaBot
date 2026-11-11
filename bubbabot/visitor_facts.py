@@ -42,7 +42,7 @@ def extract_safe_facts(message):
         if casual:
             # Avoid interpreting ordinary lowercase verbs as pet names.
             animal = re.search(r"\b(dog|cat)\b", casual.group(0)).group(1)
-            name = casual.group(1)
+            name = casual.group(2)
             if name.casefold() not in BLOCKED_NAMES:
                 facts.append("Has a " + animal + " named " + name)
     match = INTEREST.search(message)
