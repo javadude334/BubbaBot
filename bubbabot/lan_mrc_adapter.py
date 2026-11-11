@@ -17,6 +17,7 @@ from .ai_provider import INSTRUCTIONS
 from .engine import BubbaEngine
 from .protocol import Packet
 from .routing import MENTION
+from .visitor_facts import extract_safe_facts, memory_command, memory_context
 
 BOT_NAME = "Bubba"
 BOT_SITE = "BubbaBot_Ubuntu"
@@ -109,6 +110,19 @@ def main():
     histories = defaultdict(list)
     active_until = {}
     attempts = 0
+    memory = None
+    secret = os.environ.get("BUBBABOT_MEMORY_HMAC_KEY", "").strip()
+    if secret:
+        try:
+            from .postgres_memory import PostgresVisitorMemory
+            memory = PostgresVisitorMemory(secret=bytes.fromhex(secret))
+            memory.initialize()
+            print("PostgreSQL visitor memory enabled", flush=True)
+        except Exception as exc:
+            memory = None
+            print("PostgreSQL memory unavailable: " + type(exc).__name__, file=sys.stderr, flush=True)
+    else:
+        print("PostgreSQL memory disabled: BUBBABOT_MEMORY_HMAC_KEY not configured", flush=True)
     # This limit is per process lifetime, not a billing limit.
     while True:
         try:
@@ -156,14 +170,42 @@ def main():
                             print("Bubba request limit reached; restart required", flush=True)
                             continue
                         attempts += 1
+                        command = memory_command(message)
+                        notes = []
+                        if memory is not None:
+                            try:
+                                if command == "forget":
+                                    memory.forget(site, user)
+                                    histories.pop(sender_key, None)
+                                    active_until[sender_key] = time.monotonic() + SESSION_SECONDS
+                                    sock.sendall(encode(broadcast_fields("Done. I cleared what I remembered about you.")).encode())
+                                    continue
+                                notes = memory.recall(site, user)
+                            except Exception as exc:
+                                print("Memory read failed: " + type(exc).__name__, file=sys.stderr, flush=True)
+                        if command == "recall":
+                            reply = ("I remember: " + "; ".join(notes)) if notes else "I don't have any saved facts about you."
+                            sock.sendall(encode(broadcast_fields(complete_reply(reply))).encode())
+                            active_until[sender_key] = time.monotonic() + SESSION_SECONDS
+                            continue
+                        if command == "forget":
+                            sock.sendall(encode(broadcast_fields("My memory isn't available right now. Can't confirm deletion.")).encode())
+                            continue
                         history = histories[sender_key]
                         candidate = history + [{"role": "user", "content": message[:500]}]
                         try:
-                            reply, usage = converse(candidate, api_key=key, model=model, instructions=current_instructions())
+                            reply, usage = converse(candidate, api_key=key, model=model,
+                                instructions=current_instructions() + memory_context(notes))
                         except Exception as exc:
                             print("AI request failed: " + type(exc).__name__, file=sys.stderr, flush=True)
                             continue
                         reply = complete_reply(reply)
+                        if memory is not None:
+                            for fact in extract_safe_facts(message):
+                                try:
+                                    memory.remember_screened(site, user, fact)
+                                except Exception as exc:
+                                    print("Memory write failed: " + type(exc).__name__, file=sys.stderr, flush=True)
                         if reply:
                             sock.sendall(encode(broadcast_fields(reply)).encode())
                             histories[sender_key] = (candidate + [{"role": "assistant", "content": reply}])[-MAX_HISTORY:]
