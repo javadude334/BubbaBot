@@ -22,11 +22,19 @@ SAFE_PET_NAMES = re.compile(r"^[A-Za-z]{2,20}$")
 BLOCKED_NAMES = {"password", "address", "doctor", "account", "email", "phone", "school", "work"}
 
 
+def strip_bot_mention(message):
+    """Remove only a leading bot address, never other @ signs."""
+    if not isinstance(message, str):
+        return ""
+    return re.sub(r"^\\s*@?bubba\\b[\\s,:!.-]*", "", message, count=1, flags=re.I)
+
+
 def extract_safe_facts(message):
     """Return at most two screened facts; reject sensitive-looking input."""
     if not isinstance(message, str) or len(message) > 500:
         return []
     from .memory_privacy import SENSITIVE, IDENTIFIERS
+    message = strip_bot_mention(message)
     if SENSITIVE.search(message) or IDENTIFIERS.search(message):
         return []
     facts = []
