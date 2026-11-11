@@ -5,12 +5,15 @@ In #bubba, a mention starts a time-limited per-user conversation.
 Do not expose the Go gateway to the Internet.
 """
 import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import socket
 import sys
 import time
 from collections import defaultdict
 
 from .chat import converse
+from .ai_provider import INSTRUCTIONS
 from .engine import BubbaEngine
 from .protocol import Packet
 from .routing import MENTION
@@ -21,6 +24,41 @@ ROOM = "bubba"
 MAX_HISTORY = 12
 SESSION_SECONDS = 600
 FOLLOWUP_COOLDOWN_SECONDS = 5
+
+MAX_REPLY_CHARS = 220
+BUBBA_STYLE = (
+    "You're chatting with folks on an old-school BBS, not assisting customers. "
+    "Sound like a regular South Alabama fella: plainspoken, a little dry, relaxed, "
+    "occasionally funny. Don't perform a cartoon accent or overdo 'reckon' and 'howdy'. "
+    "Skip generic praise, summaries, and scripted openings like 'Great question!' "
+    "Don't end every message with a question; only ask when you actually want to know. "
+    "Often just answer and leave it there. One short sentence is fine. "
+    "Keep each entire answer under 200 characters, with a complete ending. "
+    "No lists, markdown, emojis, or long speeches. "
+    "When asked about 'today' or a date, use the date provided below. "
+    "You have no live news or historical lookup tool: don't invent specific "
+    "on-this-day events, dates, or current news. Say when you're unsure."
+)
+
+
+def current_instructions(now=None):
+    """Use the BBS's local calendar date for date-sensitive chat."""
+    now = now or datetime.now(ZoneInfo("America/Chicago"))
+    return INSTRUCTIONS + "\n" + BUBBA_STYLE + "\nToday is " + now.strftime("%A, %B %d, %Y") + " (Central Time)."
+
+
+def complete_reply(value, limit=MAX_REPLY_CHARS):
+    """Avoid displaying a half-finished sentence if a model runs long."""
+    value = clean(value)
+    if len(value) <= limit:
+        return value
+    import re
+    candidate = value[:limit]
+    endings = list(re.finditer(r"[.!?](?=\s|$)", candidate))
+    if endings:
+        return candidate[:endings[-1].end()].strip()
+    return "Well, I got carried away there. Ask me again?"
+
 
 
 def clean(value):
@@ -121,11 +159,11 @@ def main():
                         history = histories[sender_key]
                         candidate = history + [{"role": "user", "content": message[:500]}]
                         try:
-                            reply, usage = converse(candidate, api_key=key, model=model)
+                            reply, usage = converse(candidate, api_key=key, model=model, instructions=current_instructions())
                         except Exception as exc:
                             print("AI request failed: " + type(exc).__name__, file=sys.stderr, flush=True)
                             continue
-                        reply = clean(reply)[:220]
+                        reply = complete_reply(reply)
                         if reply:
                             sock.sendall(encode(broadcast_fields(reply)).encode())
                             histories[sender_key] = (candidate + [{"role": "assistant", "content": reply}])[-MAX_HISTORY:]
