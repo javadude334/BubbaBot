@@ -22,6 +22,23 @@ SAFE_PET_NAMES = re.compile(r"^[A-Za-z]{2,20}$")
 BLOCKED_NAMES = {"password", "address", "doctor", "account", "email", "phone", "school", "work"}
 
 
+def normalize_mrc_message(message, sender):
+    """Strip Mystic color codes and a leading <sender> display prefix.
+
+    Only remove the prefix if it matches the packet sender, so a visitor's
+    actual chat content is not silently discarded.
+    """
+    if not isinstance(message, str):
+        return ""
+    cleaned = re.sub(r"\|(?:[0-9]{2}|[A-Za-z][0-9])", "", message)
+    cleaned = re.sub(r"\x1b\[[0-9;]*[A-Za-z]", "", cleaned)
+    cleaned = re.sub(r"[\x00-\x1f\x7f]", " ", cleaned).strip()
+    if isinstance(sender, str) and sender:
+        prefix = re.compile(r"^<\s*" + re.escape(sender) + r"\s*>\s*:?\s*", re.I)
+        cleaned = prefix.sub("", cleaned, count=1)
+    return cleaned.strip()
+
+
 def strip_bot_mention(message):
     """Remove only a leading bot address, never other @ signs."""
     if not isinstance(message, str):
