@@ -15,12 +15,12 @@ MAX_TURNS = 6
 MAX_REQUESTS = 20
 
 
-def converse(messages, *, api_key, model="gpt-6-luna", transport=None):
+def converse(messages, *, api_key, model="gpt-6-luna", transport=None, instructions=None):
     if not api_key:
         raise ValueError("OPENAI_API_KEY is not configured")
     payload = {
         "model": model,
-        "instructions": INSTRUCTIONS,
+        "instructions": instructions if instructions is not None else INSTRUCTIONS,
         "input": messages[-MAX_TURNS * 2:],
         "max_output_tokens": 160,
         "store": False,
