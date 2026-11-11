@@ -26,7 +26,7 @@ def strip_bot_mention(message):
     """Remove only a leading bot address, never other @ signs."""
     if not isinstance(message, str):
         return ""
-    return re.sub(r"^\\s*@?bubba\\b[\\s,:!.-]*", "", message, count=1, flags=re.I)
+    return re.sub(r"^\s*@?bubba\b[\s,:!.-]*", "", message, count=1, flags=re.I)
 
 
 def extract_safe_facts(message):
