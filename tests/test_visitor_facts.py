@@ -7,6 +7,14 @@ class VisitorFactsTests(unittest.TestCase):
         self.assertEqual(extract_safe_facts("I have a dog named Coco"), ["Has a dog named Coco"])
         self.assertEqual(extract_safe_facts("my cat's name is Milo"), ["Has a cat named Milo"])
 
+    def test_casual_pet_mention(self):
+        self.assertEqual(extract_safe_facts("Been looking for my dog Coco"), ["Has a dog named Coco"])
+
+    def test_formatted_commands(self):
+        self.assertEqual(memory_command("|03@bubba what do you remember about me?"), "recall")
+        self.assertEqual(memory_command("@bubba, what do you remember about me?!"), "recall")
+        self.assertEqual(memory_command("@bubba forget me!"), "forget")
+
     def test_interests(self):
         self.assertEqual(extract_safe_facts("I love fishing"), ["Enjoys fishing"])
 
