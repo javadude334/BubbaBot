@@ -204,7 +204,12 @@ def sports_reply(message, *, history=None, now=None, transport=None, clock=None)
         saturday = (now + timedelta(days=(5 - now.weekday()) % 7)).date()
         chosen = next((g for g in games if saturday <= g["date"].date() <= saturday + timedelta(days=1)), None)
     elif chosen is None and re.search(r"\b(score|won|lost|last game|last week)\b", msg):
-        chosen = past[-1] if past else None
+        # A bare score question normally refers to the current/next game.
+        # Do not substitute an unrelated previous opponent when no final exists.
+        if re.search(r"\b(last game|last week)\b", msg):
+            chosen = past[-1] if past else None
+        else:
+            chosen = future[0] if future else (past[-1] if past else None)
     elif chosen is None:
         chosen = future[0] if future else None
     if chosen is None:
