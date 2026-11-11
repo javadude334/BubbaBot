@@ -1,7 +1,8 @@
 """Experimental LAN MRC adapter for the existing Ubuntu BubbaBot.
 
 Run with the existing bubbabot Python environment, not the official SDK runner.
-Only #bubba mentions are answered. Do not expose the Go gateway to the Internet.
+In #bubba, a mention starts a time-limited per-user conversation.
+Do not expose the Go gateway to the Internet.
 """
 import os
 import socket
@@ -12,11 +13,14 @@ from collections import defaultdict
 from .chat import converse
 from .engine import BubbaEngine
 from .protocol import Packet
+from .routing import MENTION
 
 BOT_NAME = "Bubba"
 BOT_SITE = "BubbaBot_Ubuntu"
 ROOM = "bubba"
 MAX_HISTORY = 12
+SESSION_SECONDS = 600
+FOLLOWUP_COOLDOWN_SECONDS = 5
 
 
 def clean(value):
@@ -48,8 +52,9 @@ def main():
         raise SystemExit("LOCAL_MRC_HOST and OPENAI_API_KEY are required")
     if not 1 <= port <= 65535:
         raise SystemExit("Invalid LOCAL_MRC_PORT")
-    engine = BubbaEngine({ROOM}, cooldown_seconds=30, max_replies_per_hour=20)
+    engine = BubbaEngine({ROOM}, cooldown_seconds=FOLLOWUP_COOLDOWN_SECONDS, max_replies_per_hour=20)
     histories = defaultdict(list)
+    active_until = {}
     attempts = 0
     # This limit is per process lifetime, not a billing limit.
     while True:
@@ -79,7 +84,18 @@ def main():
                             continue
                         if site.casefold() == BOT_SITE.casefold():
                             continue
-                        packet = Packet(user, site, room.lstrip("#"), "ALL", "", room.lstrip("#"), message)
+                        sender_key = (site.casefold(), user.casefold())
+                        now = time.monotonic()
+                        mentioned = bool(MENTION.search(message))
+                        if not mentioned and now >= active_until.get(sender_key, 0):
+                            histories.pop(sender_key, None)
+                            active_until.pop(sender_key, None)
+                            continue
+                        # The shared engine enforces rate limits and checks mentions.
+                        # For an active session, prepend the bot name to satisfy its
+                        # routing gate without changing the AI conversation text.
+                        routing_message = message if mentioned else "Bubba " + message
+                        packet = Packet(user, site, room.lstrip("#"), "ALL", "", room.lstrip("#"), routing_message)
                         allowed = engine.process(packet)
                         if allowed is None:
                             continue
@@ -87,7 +103,6 @@ def main():
                             print("Bubba request limit reached; restart required", flush=True)
                             continue
                         attempts += 1
-                        sender_key = (site.casefold(), user.casefold())
                         history = histories[sender_key]
                         candidate = history + [{"role": "user", "content": message[:500]}]
                         try:
@@ -95,10 +110,11 @@ def main():
                         except Exception as exc:
                             print("AI request failed: " + type(exc).__name__, file=sys.stderr, flush=True)
                             continue
-                        histories[sender_key] = (candidate + [{"role": "assistant", "content": reply}])[-MAX_HISTORY:]
                         reply = clean(reply)[:220]
                         if reply:
                             sock.sendall(encode((BOT_NAME, BOT_SITE, ROOM, "", "", ROOM, reply)).encode())
+                            histories[sender_key] = (candidate + [{"role": "assistant", "content": reply}])[-MAX_HISTORY:]
+                            active_until[sender_key] = time.monotonic() + SESSION_SECONDS
                     except (ValueError, UnicodeError) as exc:
                         print("Ignored malformed packet: " + type(exc).__name__, file=sys.stderr, flush=True)
         except (OSError, ConnectionError) as exc:
