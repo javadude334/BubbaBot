@@ -101,10 +101,10 @@ def is_conversation_message(message, active_until, now):
 
 # Until a verified sports feed is integrated, answer current college-football
 # questions locally instead of allowing the language model to invent results.
-SPORTS_TEAM = re.compile(r"\\b(troy|trojans|south alabama|jaguars|auburn|alabama|crimson tide|war eagle)\\b", re.I)
-SPORTS_CONTEXT = re.compile(r"\\b(football|game|games|score|scores|schedule|season|record|win|wins|lost|loss|played|playing|opponent|rivalry|belt|sun belt|saturday|this year|last week|next week)\\b", re.I)
-TROY = re.compile(r"\\b(troy|trojans)\\b", re.I)
-SOUTH = re.compile(r"\\b(south alabama|jaguars)\\b", re.I)
+SPORTS_TEAM = re.compile(r"\b(troy|trojans|south alabama|jaguars|auburn|alabama|crimson tide|war eagle)\b", re.I)
+SPORTS_CONTEXT = re.compile(r"\b(football|game|games|score|scores|schedule|season|record|win|wins|lost|loss|played|playing|opponent|rivalry|belt|sun belt|saturday|this year|last week|next week)\b", re.I)
+TROY = re.compile(r"\b(troy|trojans)\b", re.I)
+SOUTH = re.compile(r"\b(south alabama|jaguars)\b", re.I)
 
 
 def unverified_sports_reply(message):
