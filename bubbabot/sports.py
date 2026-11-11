@@ -80,7 +80,10 @@ def sports_context(message, *, now=None, transport=None, clock=None):
                 if len(competitors) != 2:
                     continue
                 labels = [c["team"]["displayName"] for c in competitors]
-                status = event["status"]["type"]["state"]
+                raw_status = event.get("status") or {}
+                status = (raw_status.get("type") or {}).get("state")
+                if not status and kickoff > now:
+                    status = "pre"
                 if status not in ("pre", "in", "post"):
                     continue
                 scores = [str(c.get("score", "?")) for c in competitors]
@@ -90,14 +93,20 @@ def sports_context(message, *, now=None, transport=None, clock=None):
                 games.append((kickoff, detail))
             except (KeyError, IndexError, TypeError, ValueError, AttributeError):
                 continue
-        # Only nearby games, not a season dump; include last and next game.
-        past = sorted((g for g in games if g[0] <= now), reverse=True)
-        future = sorted(g for g in games if g[0] > now)
-        chosen = past[:1] + future[:2]
+        # Weekend questions must not include games from later weeks.
+        if re.search(r"\b(weekend|saturday|sunday)\b", message, re.I):
+            from datetime import timedelta
+            saturday = (now + timedelta(days=(5 - now.weekday()) % 7)).date()
+            sunday = saturday + timedelta(days=1)
+            chosen = sorted(g for g in games if saturday <= g[0].date() <= sunday)
+        else:
+            past = sorted((g for g in games if g[0] <= now), reverse=True)
+            future = sorted(g for g in games if g[0] > now)
+            chosen = past[:1] + future[:2]
         if chosen:
             snippets.append(slug.title() + ": " + " | ".join(g[1] for g in chosen))
     if not snippets:
-        return ("SPORTS LOOKUP: No verified current schedule data available. "
+        return ("SPORTS LOOKUP: No verified game found for the requested time, or schedule unavailable. "
                 "Do not claim any specific opponent, date, result, or score.")
     return ("VERIFIED SPORTS DATA (ESPN schedule, retrieved now; Central Time). "
             "Use ONLY these facts for current matchups/scores. A pre game has NOT happened yet. "
