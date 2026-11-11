@@ -2,7 +2,11 @@
 
 Bubba is an experimental AI assistant for the Mystic Relay Chat (MRC) network. It is being built as a **standalone client**, so users from participating BBSes could eventually reach the same bot.
 
-> **Status: v0.1.0 protocol foundation — offline only.** The public MRC server's policy on automated clients, independent client handshakes, bot naming and room access has **not yet been verified**. Do not connect Bubba to the live network until confirmed with its operator.
+> **Status: local Go MRC gateway integration tested on a private LAN; public MRC connection still requires operator approval.** The public MRC server's policy on automated clients, independent client handshakes, bot naming and room access has **not yet been verified**. Do not connect Bubba to the live network until confirmed with its operator.
+
+## Local gateway integration
+
+The Python adapter at `bubbabot/lan_mrc_adapter.py` reuses the existing OpenAI Responses API client and BubbaEngine room/rate-limit policies. The Ubuntu-to-Windows LAN integration has been exercised with multiple Mystic users; the terminal-safe ASCII fix is committed but awaits retesting. This does **not** authorize or establish compatibility with the public MRC network. See [local gateway setup and approval checklist](docs/local-go-mrc-gateway.md).
 
 ## First milestone
 
@@ -15,6 +19,7 @@ Bubba is an experimental AI assistant for the Mystic Relay Chat (MRC) network. I
 
 - `bubbabot/protocol.py` — packet representation and serialization
 - `bubbabot/routing.py` — room, mention and loop checks
+- `bubbabot/lan_mrc_adapter.py` — private LAN Go MRC adapter (experimental)
 - `tests/` — offline unit tests
 - `docs/architecture.md` — integration options and outstanding checks
 
