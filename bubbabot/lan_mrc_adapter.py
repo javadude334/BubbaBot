@@ -43,6 +43,11 @@ def encode(fields):
     return "~".join(clean(str(field)) for field in fields) + "~\n"
 
 
+def broadcast_fields(message):
+    """Use MRC's ALL recipient for public chat so clients render sender labels."""
+    return (BOT_NAME, BOT_SITE, ROOM, "ALL", "", ROOM, message)
+
+
 def is_conversation_message(message, active_until, now):
     """A mention starts a session; subsequent messages work until it expires."""
     return bool(MENTION.search(message)) or now < active_until
@@ -117,7 +122,7 @@ def main():
                             continue
                         reply = clean(reply)[:220]
                         if reply:
-                            sock.sendall(encode((BOT_NAME, BOT_SITE, ROOM, "", "", ROOM, reply)).encode())
+                            sock.sendall(encode(broadcast_fields(reply)).encode())
                             histories[sender_key] = (candidate + [{"role": "assistant", "content": reply}])[-MAX_HISTORY:]
                             active_until[sender_key] = time.monotonic() + SESSION_SECONDS
                     except (ValueError, UnicodeError) as exc:
