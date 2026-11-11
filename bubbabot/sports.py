@@ -101,7 +101,7 @@ def sports_context(message, *, now=None, transport=None, clock=None):
         else:
             past = sorted((g for g in games if g[0] <= now), reverse=True)
             future = sorted(g for g in games if g[0] > now)
-            chosen = past[:1] + future[:2]
+            chosen = past[:1] + future[:4]
         if chosen:
             snippets.append(slug.title() + ": " + " | ".join(g[1] for g in chosen))
     if not snippets:
