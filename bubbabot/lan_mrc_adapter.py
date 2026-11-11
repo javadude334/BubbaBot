@@ -5,6 +5,7 @@ In #bubba, a mention starts a time-limited per-user conversation.
 Do not expose the Go gateway to the Internet.
 """
 import os
+import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import socket
@@ -95,6 +96,30 @@ def broadcast_fields(message):
 def is_conversation_message(message, active_until, now):
     """A mention starts a session; subsequent messages work until it expires."""
     return bool(MENTION.search(message)) or now < active_until
+
+
+
+# Until a verified sports feed is integrated, answer current college-football
+# questions locally instead of allowing the language model to invent results.
+SPORTS_TEAM = re.compile(r"\\b(troy|trojans|south alabama|jaguars|auburn|alabama|crimson tide|war eagle)\\b", re.I)
+SPORTS_CONTEXT = re.compile(r"\\b(football|game|games|score|scores|schedule|season|record|win|wins|lost|loss|played|playing|opponent|rivalry|belt|sun belt|saturday|this year|last week|next week)\\b", re.I)
+TROY = re.compile(r"\\b(troy|trojans)\\b", re.I)
+SOUTH = re.compile(r"\\b(south alabama|jaguars)\\b", re.I)
+
+
+def unverified_sports_reply(message):
+    """Prevent unverified recent sports claims until live data is available."""
+    if not SPORTS_TEAM.search(message) or not SPORTS_CONTEXT.search(message):
+        return None
+    if TROY.search(message) and SOUTH.search(message):
+        return ("The Battle for the Belt's a big one around here! "
+                "I'm pullin' for Troy, but I ain't checked the latest schedule or score.")
+    if TROY.search(message):
+        return ("I'm always pullin' for them Trojans! "
+                "I haven't checked the latest games or scores, though, "
+                "and I don't wanna steer you wrong.")
+    return ("I haven't checked the latest football results, "
+            "so I don't wanna tell you something that ain't so.")
 
 
 def memory_command_reply(command, memory, site, user):
@@ -217,6 +242,12 @@ def main():
                                 print("Memory read failed: " + type(exc).__name__, file=sys.stderr, flush=True)
                         history = histories[sender_key]
                         candidate = history + [{"role": "user", "content": message[:500]}]
+                        sports_reply = unverified_sports_reply(message)
+                        if sports_reply:
+                            sock.sendall(encode(broadcast_fields(sports_reply)).encode())
+                            histories[sender_key] = (candidate + [{"role": "assistant", "content": sports_reply}])[-MAX_HISTORY:]
+                            active_until[sender_key] = time.monotonic() + SESSION_SECONDS
+                            continue
                         try:
                             reply, usage = converse(candidate, api_key=key, model=model,
                                 instructions=current_instructions() + memory_context(notes))
