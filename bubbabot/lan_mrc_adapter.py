@@ -44,8 +44,13 @@ def encode(fields):
 
 
 def broadcast_fields(message):
-    """Use MRC's ALL recipient for public chat so clients render sender labels."""
-    return (BOT_NAME, BOT_SITE, ROOM, "", "", ROOM, message)
+    """Mystic MRC clients render nick prefixes supplied inside message text.
+
+    Keep ToUser empty for room broadcasts; ALL is not a valid public recipient
+    for the Mystic 1.3.7 chat script.
+    """
+    formatted = "|03<|10" + BOT_NAME + "|03>|16|07 " + message
+    return (BOT_NAME, BOT_SITE, ROOM, "", "", ROOM, formatted)
 
 
 def is_conversation_message(message, active_until, now):
