@@ -7,10 +7,10 @@ from bubbabot.lan_mrc_adapter import is_conversation_message, broadcast_fields, 
 class ConversationTests(unittest.TestCase):
     def test_public_reply_preserves_working_broadcast_and_sender(self):
         fields = broadcast_fields("Howdy, neighbor!")
-        self.assertEqual(fields, ("Bubba", "BubbaBot_Ubuntu", "bubba", "", "", "bubba", "Howdy, neighbor!"))
+        self.assertEqual(fields, ("Bubba", "BubbaBot_Ubuntu", "bubba", "", "", "bubba", "|03<|10Bubba|03>|16|07 Howdy, neighbor!"))
         self.assertEqual(
             encode(fields),
-            "Bubba~BubbaBot_Ubuntu~bubba~~~bubba~Howdy, neighbor!~\n",
+            "Bubba~BubbaBot_Ubuntu~bubba~~~bubba~|03<|10Bubba|03>|16|07 Howdy, neighbor!~\n",
         )
 
     def test_explicit_mention_starts_conversation(self):
