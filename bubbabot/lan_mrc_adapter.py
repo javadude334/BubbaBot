@@ -223,7 +223,7 @@ def main():
                         verified_sports = sports_context(message)
                         extra_instructions = current_instructions() + memory_context(notes)
                         if verified_sports:
-                            extra_instructions += "\\n" + verified_sports
+                            extra_instructions += "\n" + verified_sports
                         try:
                             reply, usage = converse(candidate, api_key=key, model=model,
                                 instructions=extra_instructions)
