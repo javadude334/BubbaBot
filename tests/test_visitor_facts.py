@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock
 from bubbabot.lan_mrc_adapter import memory_command_reply
-from bubbabot.visitor_facts import extract_safe_facts, memory_command, memory_context
+from bubbabot.visitor_facts import extract_safe_facts, memory_command, memory_context, normalize_mrc_message
 
 
 class VisitorFactsTests(unittest.TestCase):
@@ -43,6 +43,18 @@ class VisitorFactsTests(unittest.TestCase):
         memory = Mock()
         memory.forget.side_effect = RuntimeError("offline")
         self.assertNotIn("Done.", memory_command_reply("forget", memory, "bbs", "handle"))
+
+    def test_mystic_colored_sender_prefix(self):
+        message = "|02<|10BamaGeek|02>|16|07 @bubba I have a dog named Coco"
+        cleaned = normalize_mrc_message(message, "BamaGeek")
+        self.assertEqual(cleaned, "@bubba I have a dog named Coco")
+        self.assertEqual(extract_safe_facts(cleaned), ["Has a dog named Coco"])
+        question = normalize_mrc_message(
+            "|02<|10BamaGeek|02>|16|07 @bubba what do you remember about me?", "BamaGeek")
+        self.assertEqual(memory_command(question), "recall")
+
+    def test_does_not_strip_other_users_prefix(self):
+        self.assertEqual(normalize_mrc_message("<Alice> hello", "Bob"), "<Alice> hello")
 
     def test_interests(self):
         self.assertEqual(extract_safe_facts("I love fishing"), ["Enjoys fishing"])
