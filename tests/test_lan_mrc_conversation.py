@@ -1,10 +1,18 @@
 """Tests for private LAN chat conversation activation and expiry."""
 import unittest
 
-from bubbabot.lan_mrc_adapter import is_conversation_message
+from bubbabot.lan_mrc_adapter import is_conversation_message, broadcast_fields, encode
 
 
 class ConversationTests(unittest.TestCase):
+    def test_public_reply_uses_all_and_preserves_sender(self):
+        fields = broadcast_fields("Howdy, neighbor!")
+        self.assertEqual(fields, ("Bubba", "BubbaBot_Ubuntu", "bubba", "ALL", "", "bubba", "Howdy, neighbor!"))
+        self.assertEqual(
+            encode(fields),
+            "Bubba~BubbaBot_Ubuntu~bubba~ALL~~bubba~Howdy, neighbor!~\\n",
+        )
+
     def test_explicit_mention_starts_conversation(self):
         self.assertTrue(is_conversation_message("@Bubba howdy", 0, 100))
         self.assertTrue(is_conversation_message("Bubba, howdy", 0, 100))
