@@ -45,7 +45,7 @@ def encode(fields):
 
 def broadcast_fields(message):
     """Use MRC's ALL recipient for public chat so clients render sender labels."""
-    return (BOT_NAME, BOT_SITE, ROOM, "ALL", "", ROOM, message)
+    return (BOT_NAME, BOT_SITE, ROOM, "", "", ROOM, message)
 
 
 def is_conversation_message(message, active_until, now):
