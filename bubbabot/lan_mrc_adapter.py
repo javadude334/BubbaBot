@@ -18,7 +18,7 @@ from .ai_provider import INSTRUCTIONS
 from .engine import BubbaEngine
 from .protocol import Packet
 from .routing import MENTION
-from .sports import sports_context
+from .sports import sports_context, sports_reply
 from .visitor_facts import extract_safe_facts, memory_command, memory_context, normalize_mrc_message
 
 BOT_NAME = "Bubba"
@@ -220,6 +220,13 @@ def main():
                                 print("Memory read failed: " + type(exc).__name__, file=sys.stderr, flush=True)
                         history = histories[sender_key]
                         candidate = history + [{"role": "user", "content": message[:500]}]
+                        grounded_reply = sports_reply(message, history=history)
+                        if grounded_reply is not None:
+                            reply = complete_reply(grounded_reply)
+                            sock.sendall(encode(broadcast_fields(reply)).encode())
+                            histories[sender_key] = (candidate + [{"role": "assistant", "content": reply}])[-MAX_HISTORY:]
+                            active_until[sender_key] = time.monotonic() + SESSION_SECONDS
+                            continue
                         verified_sports = sports_context(message)
                         extra_instructions = current_instructions() + memory_context(notes)
                         if verified_sports:
