@@ -10,7 +10,7 @@ class ConversationTests(unittest.TestCase):
         self.assertEqual(fields, ("Bubba", "BubbaBot_Ubuntu", "bubba", "ALL", "", "bubba", "Howdy, neighbor!"))
         self.assertEqual(
             encode(fields),
-            "Bubba~BubbaBot_Ubuntu~bubba~ALL~~bubba~Howdy, neighbor!~\\n",
+            "Bubba~BubbaBot_Ubuntu~bubba~ALL~~bubba~Howdy, neighbor!~\n",
         )
 
     def test_explicit_mention_starts_conversation(self):
