@@ -43,6 +43,11 @@ def encode(fields):
     return "~".join(clean(str(field)) for field in fields) + "~\n"
 
 
+def is_conversation_message(message, active_until, now):
+    """A mention starts a session; subsequent messages work until it expires."""
+    return bool(MENTION.search(message)) or now < active_until
+
+
 def main():
     host = os.environ.get("LOCAL_MRC_HOST", "").strip()
     port = int(os.environ.get("LOCAL_MRC_PORT", "5000"))
@@ -87,7 +92,7 @@ def main():
                         sender_key = (site.casefold(), user.casefold())
                         now = time.monotonic()
                         mentioned = bool(MENTION.search(message))
-                        if not mentioned and now >= active_until.get(sender_key, 0):
+                        if not is_conversation_message(message, active_until.get(sender_key, 0), now):
                             histories.pop(sender_key, None)
                             active_until.pop(sender_key, None)
                             continue
