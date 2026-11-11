@@ -97,6 +97,23 @@ def is_conversation_message(message, active_until, now):
     return bool(MENTION.search(message)) or now < active_until
 
 
+def memory_command_reply(command, memory, site, user):
+    """Handle local memory commands without an AI call; never claim failed deletion."""
+    if command not in ("recall", "forget"):
+        return None
+    if memory is None:
+        return "My memory isn't available right now."
+    try:
+        if command == "forget":
+            memory.forget(site, user)
+            return "Done. I cleared what I remembered about you."
+        notes = memory.recall(site, user)
+        return complete_reply("I remember: " + "; ".join(notes)) if notes else "I don't have any saved facts about you."
+    except Exception as exc:
+        print("Memory command failed: " + type(exc).__name__, file=sys.stderr, flush=True)
+        return "My memory isn't available right now. Try again later."
+
+
 def main():
     host = os.environ.get("LOCAL_MRC_HOST", "").strip()
     port = int(os.environ.get("LOCAL_MRC_PORT", "5000"))
@@ -109,6 +126,7 @@ def main():
     engine = BubbaEngine({ROOM}, cooldown_seconds=FOLLOWUP_COOLDOWN_SECONDS, max_replies_per_hour=20)
     histories = defaultdict(list)
     active_until = {}
+    last_memory_command = {}
     attempts = 0
     memory = None
     secret = os.environ.get("BUBBABOT_MEMORY_HMAC_KEY", "").strip()
@@ -158,9 +176,28 @@ def main():
                             histories.pop(sender_key, None)
                             active_until.pop(sender_key, None)
                             continue
-                        # The shared engine enforces rate limits and checks mentions.
-                        # For an active session, prepend the bot name to satisfy its
-                        # routing gate without changing the AI conversation text.
+                        # Commands are local and must not wait for AI or its
+                        # five-second cooldown. Limit repeat commands per visitor.
+                        command = memory_command(message)
+                        if command:
+                            if now - last_memory_command.get(sender_key, -1000) < 2:
+                                continue
+                            last_memory_command[sender_key] = now
+                            reply = memory_command_reply(command, memory, site, user)
+                            if command == "forget" and reply.startswith("Done."):
+                                histories.pop(sender_key, None)
+                            sock.sendall(encode(broadcast_fields(reply)).encode())
+                            active_until[sender_key] = time.monotonic() + SESSION_SECONDS
+                            continue
+                        # Save allowlisted facts even when ordinary chat is on
+                        # cooldown or the AI request fails.
+                        if memory is not None:
+                            for fact in extract_safe_facts(message):
+                                try:
+                                    memory.remember_screened(site, user, fact)
+                                except Exception as exc:
+                                    print("Memory write failed: " + type(exc).__name__, file=sys.stderr, flush=True)
+                        # The shared engine enforces limits for AI replies only.
                         routing_message = message if mentioned else "Bubba " + message
                         packet = Packet(user, site, room.lstrip("#"), "ALL", "", room.lstrip("#"), routing_message)
                         allowed = engine.process(packet)
@@ -170,27 +207,12 @@ def main():
                             print("Bubba request limit reached; restart required", flush=True)
                             continue
                         attempts += 1
-                        command = memory_command(message)
                         notes = []
                         if memory is not None:
                             try:
-                                if command == "forget":
-                                    memory.forget(site, user)
-                                    histories.pop(sender_key, None)
-                                    active_until[sender_key] = time.monotonic() + SESSION_SECONDS
-                                    sock.sendall(encode(broadcast_fields("Done. I cleared what I remembered about you.")).encode())
-                                    continue
                                 notes = memory.recall(site, user)
                             except Exception as exc:
                                 print("Memory read failed: " + type(exc).__name__, file=sys.stderr, flush=True)
-                        if command == "recall":
-                            reply = ("I remember: " + "; ".join(notes)) if notes else "I don't have any saved facts about you."
-                            sock.sendall(encode(broadcast_fields(complete_reply(reply))).encode())
-                            active_until[sender_key] = time.monotonic() + SESSION_SECONDS
-                            continue
-                        if command == "forget":
-                            sock.sendall(encode(broadcast_fields("My memory isn't available right now. Can't confirm deletion.")).encode())
-                            continue
                         history = histories[sender_key]
                         candidate = history + [{"role": "user", "content": message[:500]}]
                         try:
@@ -200,12 +222,6 @@ def main():
                             print("AI request failed: " + type(exc).__name__, file=sys.stderr, flush=True)
                             continue
                         reply = complete_reply(reply)
-                        if memory is not None:
-                            for fact in extract_safe_facts(message):
-                                try:
-                                    memory.remember_screened(site, user, fact)
-                                except Exception as exc:
-                                    print("Memory write failed: " + type(exc).__name__, file=sys.stderr, flush=True)
                         if reply:
                             sock.sendall(encode(broadcast_fields(reply)).encode())
                             histories[sender_key] = (candidate + [{"role": "assistant", "content": reply}])[-MAX_HISTORY:]
