@@ -32,7 +32,7 @@ class ConversationTests(unittest.TestCase):
     def test_battle_for_the_belt_is_rivalry_not_completed_result(self):
         reply = unverified_sports_reply("Troy vs South Alabama game?")
         self.assertIn("Battle for the Belt", reply)
-        self.assertIn("haven't checked", reply)
+        self.assertIn("ain't checked", reply)
 
     def test_regular_chat_is_not_intercepted(self):
         self.assertIsNone(unverified_sports_reply("I'm fishing at the river."))
