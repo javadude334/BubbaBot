@@ -9,7 +9,7 @@ This adapter connects the Ubuntu BubbaBot to a **privately operated Go MRC gatew
 - `bubbabot/chat.py`: OpenAI Responses API calls
 - `bubbabot/official_sdk_runner.py`: **unchanged** official connector
 
-The adapter accepts only mentions in `#bubba`, ignores self/server messages, and does not handle private messages. It retains the existing 30-second per-sender cooldown, 20 replies/hour limit, and adds a 100-attempt process-lifetime limit. **These limits do not enforce a dollar budget.** It stores short histories in memory only and converts outgoing chat to printable ASCII for Mystic compatibility.
+The adapter accepts mentions in `#bubba` to start a per-user conversation, then accepts follow-up messages without another mention for 10 minutes after each successful reply. Sessions and conversation history are keyed by site and username and are held only in process memory. It ignores self/server messages and does not handle private messages. It uses a 5-second per-sender cooldown, retains the 20 replies/hour global limit, and adds a 100-attempt process-lifetime limit. **These limits do not enforce a dollar budget.** It stores short histories in memory only and converts outgoing chat to printable ASCII for Mystic compatibility.
 
 ## Run manually on Ubuntu
 
@@ -33,7 +33,7 @@ Replace the sample LAN address for your gateway. Keep the original `bubbabot.ser
 
 - Bind the gateway to a LAN interface and allow TCP/5000 only from the trusted Ubuntu host. The current Go protocol is **plaintext and unauthenticated**; do not port-forward it or expose it publicly.
 - The Go server currently broadcasts non-control packets to all connected peers; proper server-side room routing and sender identity validation are outstanding.
-- Confirm formatting, reconnect behavior, cooldowns, and OpenAI error handling in the sandbox.
+- Confirm formatting, 10-minute conversation sessions, reconnect behavior, cooldowns, and OpenAI error handling in the sandbox.
 - Verify approval and exact conditions with the public MRC network operator before any live-network connection. Approval is **not** implied by successful LAN testing.
 - After approval, implement and test a dedicated authorized connector; do not point this LAN-only adapter at the public service or weaken the existing SDK TLS/room restrictions.
 - Before production, implement persistent usage/spend safeguards and deployment monitoring.
