@@ -37,3 +37,15 @@ Replace the sample LAN address for your gateway. Keep the original `bubbabot.ser
 - Verify approval and exact conditions with the public MRC network operator before any live-network connection. Approval is **not** implied by successful LAN testing.
 - After approval, implement and test a dedicated authorized connector; do not point this LAN-only adapter at the public service or weaken the existing SDK TLS/room restrictions.
 - Before production, implement persistent usage/spend safeguards and deployment monitoring.
+
+## One-command deployment (Ubuntu)
+
+After the initial manual installation and Python virtual environment setup, use:
+
+```sh
+sudo bash /opt/bubbabot/deploy/deploy.sh
+```
+
+The script fast-forwards `main`, runs all offline unit tests, installs/enables the persistent `bubbabot-local-mrc.service`, stops prior transient LAN test instances, and restarts the persistent service. It refuses tracked local changes or an active original `bubbabot.service`. Untracked files (including `mrc_connector/`) are preserved. If tests fail, the running bot is not restarted, although the checked-out code has already advanced.
+
+The service uses `/etc/bubbabot/openai.env` for the secret and the LAN address configured in `deploy/bubbabot-local-mrc.service`. Review the address before deployment if the gateway moves. It reconnects after gateway outages. The service does not auto-pull GitHub commits: run the deploy command again for future releases. For status use `sudo systemctl status bubbabot-local-mrc` and `sudo journalctl -u bubbabot-local-mrc -f`. Never run both the original public-network connector and the LAN adapter unintentionally.
