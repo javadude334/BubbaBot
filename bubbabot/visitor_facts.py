@@ -16,6 +16,7 @@ MY_PET = re.compile(
     r"\bmy\s+(dog|cat)(?:'s| is)\s+name\s+is\s+([A-Za-z]{2,20})\b",
     re.IGNORECASE,
 )
+CASUAL_PET = re.compile(r"\\bmy\\s+(dog|cat)\\s+([A-Za-z]{2,20})\\b", re.I)
 INTEREST = re.compile(r"\b(?:i (?:love|like|enjoy)|i'm into)\s+([a-z ]{3,30})\b", re.I)
 SAFE_PET_NAMES = re.compile(r"^[A-Za-z]{2,20}$")
 BLOCKED_NAMES = {"password", "address", "doctor", "account", "email", "phone", "school", "work"}
@@ -29,7 +30,7 @@ def extract_safe_facts(message):
     if SENSITIVE.search(message) or IDENTIFIERS.search(message):
         return []
     facts = []
-    for pattern in (PET, MY_PET):
+    for pattern in (PET, MY_PET, CASUAL_PET):
         match = pattern.search(message)
         if match:
             animal, name = match.groups()
@@ -49,10 +50,16 @@ def memory_command(message):
     """Return recall/forget command; never trigger on casual use of 'forget'."""
     if not isinstance(message, str):
         return None
-    normalized = re.sub(r"^\s*@?bubba[,!: ]*\s*", "", message, flags=re.I).strip().casefold().rstrip("?.!")
-    if normalized in {"what do you remember about me", "what do you remember", "what do you know about me", "my memories"}:
+    # Mystic MRC messages may contain pipe color codes, terminal controls,
+    # and punctuation around the bot mention.
+    normalized = re.sub(r"\\|(?:[0-9]{2}|[A-Za-z][0-9])", "", message)
+    normalized = re.sub(r"[\\x00-\\x1f\\x7f]", " ", normalized)
+    normalized = re.sub(r"^\\s*@?bubba\\b[\\s,:!.-]*", "", normalized, flags=re.I)
+    normalized = re.sub(r"[^a-z0-9 ]+", " ", normalized.casefold())
+    normalized = " ".join(normalized.split())
+    if normalized in {"what do you remember about me", "what do you remember", "what do you know about me", "my memories", "do you remember me", "remember anything about me"}:
         return "recall"
-    if normalized in {"forget me", "forget everything about me", "delete my memories", "forget what you know about me"}:
+    if normalized in {"forget me", "forget everything about me", "delete my memories", "forget what you know about me", "clear my memory"}:
         return "forget"
     return None
 
