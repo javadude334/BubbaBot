@@ -1,7 +1,9 @@
 """Tests for private LAN chat conversation activation and expiry."""
 import unittest
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from bubbabot.lan_mrc_adapter import is_conversation_message, broadcast_fields, encode
+from bubbabot.lan_mrc_adapter import is_conversation_message, broadcast_fields, encode, complete_reply, current_instructions
 
 
 class ConversationTests(unittest.TestCase):
@@ -12,6 +14,15 @@ class ConversationTests(unittest.TestCase):
             encode(fields),
             "Bubba~BubbaBot_Ubuntu~bubba~~~bubba~|03<|10Bubba|03>|16|07 Howdy, neighbor!~\n",
         )
+
+    def test_complete_reply_never_cuts_mid_sentence(self):
+        self.assertEqual(complete_reply("That's funny. " + "Extra words " * 30), "That's funny.")
+        self.assertEqual(complete_reply("Hey there!"), "Hey there!")
+
+    def test_date_and_style_instructions(self):
+        instructions = current_instructions(datetime(2026, 11, 10, 20, 0, tzinfo=ZoneInfo("America/Chicago")))
+        self.assertIn("Tuesday, November 10, 2026", instructions)
+        self.assertIn("Don't end every message with a question", instructions)
 
     def test_explicit_mention_starts_conversation(self):
         self.assertTrue(is_conversation_message("@Bubba howdy", 0, 100))
