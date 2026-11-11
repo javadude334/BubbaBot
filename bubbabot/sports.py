@@ -46,10 +46,9 @@ def _schedule(slug, season, *, transport=None, clock=None):
     cached = _cache.get(key)
     if cached and now - cached[0] < CACHE_SECONDS:
         return cached[1]
-    request = urllib.request.Request(
-        URL.format(TEAM_SLUGS[slug], season),
-        headers={"User-Agent": "BubbaBot/1.0 (BBS sports schedule)", "Accept": "application/json"},
-    )
+    # ESPN currently rejects BubbaBot's custom User-Agent with HTTP 403.
+    # Use the default urllib request, which has been verified against the live endpoint.
+    request = URL.format(TEAM_SLUGS[slug], season)
     try:
         with (transport or urllib.request.urlopen)(request, timeout=5) as response:
             data = json.load(response)
