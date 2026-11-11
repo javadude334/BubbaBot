@@ -9,7 +9,7 @@ User=bubbabot
 Group=bubbabot
 WorkingDirectory=/opt/bubbabot
 EnvironmentFile=/etc/bubbabot/openai.env
-Environment=LOCAL_MRC_HOST=192.168.150.58
+Environment=LOCAL_MRC_HOST=127.0.0.1
 Environment=LOCAL_MRC_PORT=5000
 ExecStart=/opt/bubbabot/.venv/bin/python -u -m bubbabot.lan_mrc_adapter
 Restart=always
