@@ -30,13 +30,21 @@ def extract_safe_facts(message):
     if SENSITIVE.search(message) or IDENTIFIERS.search(message):
         return []
     facts = []
-    for pattern in (PET, MY_PET, CASUAL_PET):
+    for pattern in (PET, MY_PET):
         match = pattern.search(message)
         if match:
             animal, name = match.groups()
             if SAFE_PET_NAMES.fullmatch(name) and name.casefold() not in BLOCKED_NAMES:
                 facts.append("Has a " + animal.casefold() + " named " + name.capitalize())
                 break
+    if not facts:
+        casual = CASUAL_PET.search(message)
+        if casual:
+            # Avoid interpreting ordinary lowercase verbs as pet names.
+            animal = re.search(r"\b(dog|cat)\b", casual.group(0)).group(1)
+            name = casual.group(1)
+            if name.casefold() not in BLOCKED_NAMES:
+                facts.append("Has a " + animal + " named " + name)
     match = INTEREST.search(message)
     if match:
         topic = match.group(1).strip().casefold()
