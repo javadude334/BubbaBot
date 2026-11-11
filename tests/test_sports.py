@@ -35,7 +35,7 @@ class SportsTests(unittest.TestCase):
                 {"team": {"displayName": "South Alabama Jaguars"}}]}],
             "status": {"type": {"state": "pre"}}}]}
         def transport(request, timeout):
-            calls.append(request.full_url)
+            calls.append(request if isinstance(request, str) else request.full_url)
             return Response(json.dumps(payload).encode())
         msg = "Who is Troy playing this weekend?"
         answer = sports.sports_context(msg, now=self.now, transport=transport, clock=lambda: 100)
