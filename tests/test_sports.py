@@ -49,8 +49,27 @@ class SportsTests(unittest.TestCase):
         def offline(request, timeout):
             raise OSError("offline")
         result = sports.sports_context("Alabama game this weekend?", now=self.now, transport=offline)
-        self.assertIn("No verified current schedule data", result)
+        self.assertIn("No verified game found", result)
         self.assertNotIn("Troy Trojans", result)
+
+    def test_null_status_upcoming_weekend_and_later_opponent(self):
+        payload = {"events": [
+            {"date": "2026-11-14T19:00Z", "status": None,
+             "competitions": [{"competitors": [
+                 {"team": {"displayName": "Troy Trojans"}},
+                 {"team": {"displayName": "South Alabama Jaguars"}}]}]},
+            {"date": "2026-11-28T20:00Z", "status": None,
+             "competitions": [{"competitors": [
+                 {"team": {"displayName": "Troy Trojans"}},
+                 {"team": {"displayName": "Arkansas State Red Wolves"}}]}]}
+        ]}
+        def transport(request, timeout):
+            return Response(json.dumps(payload).encode())
+        result = sports.sports_context("Who is Troy playing this weekend?",
+                                       now=self.now, transport=transport)
+        self.assertIn("South Alabama Jaguars", result)
+        self.assertNotIn("Arkansas State", result)
+        self.assertIn("(pre)", result)
 
     def test_non_sports_chat_avoids_lookup(self):
         self.assertEqual(sports.sports_context("I love Troy!", now=self.now), "")
