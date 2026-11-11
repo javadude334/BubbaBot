@@ -34,16 +34,16 @@ echo "Installing systemd service..."
 install -m 0644 "$UNIT_SOURCE" "$UNIT_TARGET"
 systemctl daemon-reload
 
-# Stop any prior transient test instances to prevent duplicate AI responses.
-for old in bubbabot-mrc-test.service bubbabot-mrc-test2.service bubbabot-mrc-test3.service; do
-  systemctl stop "$old" 2>/dev/null || true
-done
-
-# Keep the original official-network service untouched and disabled.
+# Keep the original official-network service untouched.
 if systemctl is-active --quiet bubbabot.service; then
   echo "Original bubbabot.service is active; stop it manually before deployment." >&2
   exit 1
 fi
+
+# Stop any prior transient test instances to prevent duplicate AI responses.
+for old in bubbabot-mrc-test.service bubbabot-mrc-test2.service bubbabot-mrc-test3.service; do
+  systemctl stop "$old" 2>/dev/null || true
+done
 
 systemctl enable "$SERVICE"
 systemctl restart "$SERVICE"
