@@ -27,7 +27,17 @@ def build_bot():
     bot = MRCBot(host=host, port=port, token=token, slug=slug,
                  verify_tls=True, debug=False)
     bot.display_name = "Bubba"
-    bridge = SDKBridge(BotProfile(name="Bubba", site=slug, room="bubba"))
+    from .conversation_service import ConversationService, memory_from_environment
+    key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not key:
+        raise ValueError("OPENAI_API_KEY is required for official connector AI mode")
+    conversation = ConversationService(
+        room="bubba", api_key=key,
+        model=os.environ.get("BUBBABOT_AI_MODEL", "gpt-4o-mini"),
+        memory=memory_from_environment(),
+    )
+    bridge = SDKBridge(BotProfile(name="Bubba", site=slug, room="bubba"),
+                       conversation=conversation)
     wire_mode1_bot(bot, bridge=bridge, expected_room="bubba")
     return bot
 
