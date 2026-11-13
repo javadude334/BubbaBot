@@ -83,7 +83,9 @@ class SDKAdapterTests(unittest.TestCase):
                 "CONNECTOR_HOST": "connector.example.test",
                 "BOT_SLUG": "bubba",
                 "BOT_ROOM": "bubba",
-                "CONNECTOR_PORT": "5010"
+                "CONNECTOR_PORT": "5010",
+                "OPENAI_API_KEY": "test-key-only",
+                "BUBBABOT_MEMORY_HMAC_KEY": ""
             }):
                 bot = build_bot()
         self.assertEqual(created[0]["verify_tls"], True)
