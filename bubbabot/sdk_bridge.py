@@ -28,10 +28,11 @@ class SDKBridge:
     """Pure event-to-reply conversion, with a fail-closed room policy."""
 
     def __init__(self, profile=None, *, cooldown_seconds=30,
-                 max_replies_per_hour=20):
+                 max_replies_per_hour=20, conversation=None):
         self.profile = profile or BotProfile(room="Bubba")
         if self.profile.room.casefold() == "lobby":
             raise ValueError("MRC policy prohibits bot participation in lobby")
+        self.conversation = conversation
         self.manager = OfflineRoomManager(
             self.profile, cooldown_seconds=cooldown_seconds,
             max_replies_per_hour=max_replies_per_hour
@@ -43,7 +44,10 @@ class SDKBridge:
         room = event.room.lstrip("#")
         if room.casefold() == "lobby" or not self.profile.accepts_room(room):
             return None
-        # Keep the existing, tested mention/cooldown/self-reply engine.
+        if self.conversation is not None:
+            reply = self.conversation.handle(event.user, event.site, room, event.text)
+            return OutgoingChat(room=room, text=reply) if reply else None
+        # Offline test mode remains available for deterministic tests.
         packet = Packet(event.user, event.site, room, "ALL", "", room, event.text)
         encoded = self.manager.handle_line(encode_packet(packet))
         if not encoded:
