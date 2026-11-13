@@ -126,24 +126,9 @@ def main():
         raise SystemExit("LOCAL_MRC_HOST and OPENAI_API_KEY are required")
     if not 1 <= port <= 65535:
         raise SystemExit("Invalid LOCAL_MRC_PORT")
-    engine = BubbaEngine({ROOM}, cooldown_seconds=FOLLOWUP_COOLDOWN_SECONDS, max_replies_per_hour=20)
-    histories = defaultdict(list)
-    active_until = {}
-    last_memory_command = {}
-    attempts = 0
-    memory = None
-    secret = os.environ.get("BUBBABOT_MEMORY_HMAC_KEY", "").strip()
-    if secret:
-        try:
-            from .postgres_memory import PostgresVisitorMemory
-            memory = PostgresVisitorMemory(secret=bytes.fromhex(secret))
-            memory.initialize()
-            print("PostgreSQL visitor memory enabled", flush=True)
-        except Exception as exc:
-            memory = None
-            print("PostgreSQL memory unavailable: " + type(exc).__name__, file=sys.stderr, flush=True)
-    else:
-        print("PostgreSQL memory disabled: BUBBABOT_MEMORY_HMAC_KEY not configured", flush=True)
+    from .conversation_service import ConversationService, memory_from_environment
+    conversation = ConversationService(room=ROOM, api_key=key, model=model,
+                                       memory=memory_from_environment())
     # This limit is per process lifetime, not a billing limit.
     while True:
         try:
@@ -173,75 +158,9 @@ def main():
                             continue
                         if site.casefold() == BOT_SITE.casefold():
                             continue
-                        sender_key = (site.casefold(), user.casefold())
-                        now = time.monotonic()
-                        mentioned = bool(MENTION.search(message))
-                        if not is_conversation_message(message, active_until.get(sender_key, 0), now):
-                            histories.pop(sender_key, None)
-                            active_until.pop(sender_key, None)
-                            continue
-                        # Commands are local and must not wait for AI or its
-                        # five-second cooldown. Limit repeat commands per visitor.
-                        command = memory_command(message)
-                        if command:
-                            if now - last_memory_command.get(sender_key, -1000) < 2:
-                                continue
-                            last_memory_command[sender_key] = now
-                            reply = memory_command_reply(command, memory, site, user)
-                            if command == "forget" and reply.startswith("Done."):
-                                histories.pop(sender_key, None)
-                            sock.sendall(encode(broadcast_fields(reply)).encode())
-                            active_until[sender_key] = time.monotonic() + SESSION_SECONDS
-                            continue
-                        # Save allowlisted facts even when ordinary chat is on
-                        # cooldown or the AI request fails.
-                        if memory is not None:
-                            facts = extract_safe_facts(message)
-                            for fact in facts:
-                                try:
-                                    memory.remember_screened(site, user, fact)
-                                except Exception as exc:
-                                    print("Memory write failed: " + type(exc).__name__, file=sys.stderr, flush=True)
-                        # The shared engine enforces limits for AI replies only.
-                        routing_message = message if mentioned else "Bubba " + message
-                        packet = Packet(user, site, room.lstrip("#"), "ALL", "", room.lstrip("#"), routing_message)
-                        allowed = engine.process(packet)
-                        if allowed is None:
-                            continue
-                        if attempts >= 100:
-                            print("Bubba request limit reached; restart required", flush=True)
-                            continue
-                        attempts += 1
-                        notes = []
-                        if memory is not None:
-                            try:
-                                notes = memory.recall(site, user)
-                            except Exception as exc:
-                                print("Memory read failed: " + type(exc).__name__, file=sys.stderr, flush=True)
-                        history = histories[sender_key]
-                        candidate = history + [{"role": "user", "content": message[:500]}]
-                        grounded_reply = sports_reply(message, history=history)
-                        if grounded_reply is not None:
-                            reply = complete_reply(grounded_reply)
-                            sock.sendall(encode(broadcast_fields(reply)).encode())
-                            histories[sender_key] = (candidate + [{"role": "assistant", "content": reply}])[-MAX_HISTORY:]
-                            active_until[sender_key] = time.monotonic() + SESSION_SECONDS
-                            continue
-                        verified_sports = sports_context(message)
-                        extra_instructions = current_instructions() + memory_context(notes)
-                        if verified_sports:
-                            extra_instructions += "\n" + verified_sports
-                        try:
-                            reply, usage = converse(candidate, api_key=key, model=model,
-                                instructions=extra_instructions)
-                        except Exception as exc:
-                            print("AI request failed: " + type(exc).__name__, file=sys.stderr, flush=True)
-                            continue
-                        reply = complete_reply(reply)
+                        reply = conversation.handle(user, site, room, message)
                         if reply:
                             sock.sendall(encode(broadcast_fields(reply)).encode())
-                            histories[sender_key] = (candidate + [{"role": "assistant", "content": reply}])[-MAX_HISTORY:]
-                            active_until[sender_key] = time.monotonic() + SESSION_SECONDS
                     except (ValueError, UnicodeError) as exc:
                         print("Ignored malformed packet: " + type(exc).__name__, file=sys.stderr, flush=True)
         except (OSError, ConnectionError) as exc:
